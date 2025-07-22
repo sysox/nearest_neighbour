@@ -93,8 +93,22 @@ def H_inv(target_entropy):
         raise ValueError(f"Failed to find inverse for entropy {target_entropy} in [0, 0.5]. Error: {e}")
 
 ################################################ Numpy##################################################################
+def binary_vector_to_uint64_array(binary_vector):
+    vector_length = len(binary_vector)
+    bits_needed_for_padding = (64 - (vector_length % 64)) % 64
+    padded_vector_length = vector_length + bits_needed_for_padding
 
-def random_binary_vector(m, pack = False, HW = None):
+    packed_uint8 = np.packbits(binary_vector)
+
+    # 4. Pad the uint8 array to be a multiple of 8 bytes for uint64 view
+    bytes_needed_for_uint64_padding = (8 - (packed_uint8.size % 8)) % 8
+    if bytes_needed_for_uint64_padding > 0:
+        packed_uint8 = np.pad(packed_uint8, (0, bytes_needed_for_uint64_padding), 'constant', constant_values=0)
+
+    uint64_array = packed_uint8.view(np.uint64)
+    return uint64_array
+
+def random_binary_vector(m, HW = None, pack = False):
     bound = min(2**64, 2**m)
     num_uint64_chunks = (m + 63) // 64  # Calculate the number of uint64 chunks needed
 
@@ -103,35 +117,32 @@ def random_binary_vector(m, pack = False, HW = None):
             vec = np.random.randint(0, 2, m, dtype=np.uint8)
         else:
             vec = np.zeros(m, dtype=np.uint8)
+            assert m >= HW, print(m, HW)
             indices = np.random.choice(m, HW, replace=False)
             np.put(vec, indices, 1)
     else:
         if HW == None:
             vec = np.random.randint(low=0, high=min(2**64, 2**m), size=num_uint64_chunks, dtype=np.uint64)
         else:
-            vec = random_binary_vector(m, pack = False, HW = HW)
-            vec = np.packbits(vec, bitorder='little')
+            binary_vector = random_binary_vector(m, HW = HW, pack = False)
+            vec = binary_vector_to_uint64_array(binary_vector)
     return vec
 
-def random_binary_vectors(m, **kwargs):
-    """
-    Generates two sets of 2**(lambda*m) random m-dimensional binary vectors.
-
-    Args:
-        m (int): The dimension of the vectors.
-        lambda_val (float): A scalar for the size of the sets.
-
-    Returns:
-        tuple: Two NumPy arrays, each representing a set of binary vectors.
-    """
-    if 'lambda_val' in kwargs:
-        num_vectors = 2 ** (kwargs['lambda_val'] * m)
-    else:
-        num_vectors = kwargs['num_vectors']
-    num_vectors -= 1
-    vectors = [random_binary_vector(m) for _ in range(int(num_vectors))]
-
+def random_binary_vectors(m, num_vectors = None, pack = False):
+    vectors = [random_binary_vector(m, pack = pack) for _ in range(int(num_vectors))]
     return vectors
+
+
+def gen_closest_vecs_instance(reference_vec, HW = 0, pack = False):
+    m = len(reference_vec)
+    vec_to_add = random_binary_vector(m, HW, pack)
+    return reference_vec ^ vec_to_add
+
+def gen_instance(m, num_vectors, NN_dist = 0,  pack = False):
+    L = random_binary_vectors(m, num_vectors, pack)
+    R = random_binary_vectors(m, num_vectors, pack)
+    R[-1] = gen_closest_vecs_instance(L[-1], NN_dist, pack)
+    return L, R
 
 def HW_int(n: np.uint64) -> int:
     return int(n).bit_count()
@@ -139,15 +150,32 @@ def HW_int(n: np.uint64) -> int:
 def HW_vector(vec) -> int:
     return sum([HW_int(val) for val in vec])
 
-
-def gen_closest_vecs_instance(reference_vec, **kwargs):
-    m = len(reference_vec)
-    if 'gamma_val' in kwargs:
-        HW = int(2 ** (kwargs['gamma_val'] * m))
-    else:
-        HW = kwargs['HW']
-    indices_to_flip = np.random.choice(m, HW, replace=False)
-
 if __name__ == '__main__':
-    print(random_binary_vector(10, pack=False, HW=5))
-    print(random_binary_vector(10, pack=True, HW=5))
+    short = random_binary_vector(10, pack=False)
+    short_HW = random_binary_vector(10, pack=False, HW=5)
+    short_packed = random_binary_vector(10, pack=True)
+    short_packed_HW = random_binary_vector(10, pack=True, HW=5)
+    long_packed = random_binary_vector(65, pack=True)
+    long_packed_HW = random_binary_vector(65, pack=True, HW=5)
+
+    print(short)
+    print(short_packed)
+    print(long_packed)
+    assert HW_vector(short_HW) == 5
+    assert HW_vector(short_packed_HW) == 5
+    assert HW_vector(long_packed_HW) == 5
+
+    for i in range(10):
+        print("Natural instance")
+        NN_dist = random.randint(0, 2)
+        L, R = gen_instance(m = 10, num_vectors = 4, NN_dist = NN_dist,  pack = False)
+        print("L=", *L, '--' * 40, sep='\n')
+        print( "R=", *R, '--' * 40, sep='\n')
+        assert HW_vector(L[-1] ^ R[-1]) == NN_dist
+
+    print("Packed instance")
+    NN_dist = random.randint(0, 2)
+    L, R = gen_instance(m = 10, num_vectors = 4, NN_dist = NN_dist,  pack = True)
+    print("L=", *L, '--' * 40, sep='\n')
+    print( "R=", *R, '--' * 40, sep='\n')
+    assert HW_vector(L[-1] ^ R[-1]) == NN_dist
