@@ -1,8 +1,10 @@
 import sympy, random
 import numpy as np
 from math import log2
-import prettytable
 from scipy.optimize import root_scalar
+
+
+################################################ Stats #################################################################
 
 def binom_prob(n, HW, p=0.5):
     return round(sympy.binomial(n, HW) * p ** HW * (1 - p) ** (n - HW), 4)
@@ -16,7 +18,6 @@ def cdf(dist):
 def center_cumulative(dist):
     return ([1] + [sum(dist[i:-i]) for i in range(1, len(dist)//2)])[::-1]
 
-
 def distance_prob(distribution, distance):
     return sum([distribution[i]*distribution[i+distance] for i in range(len(distribution) - distance)])
 
@@ -24,7 +25,7 @@ def distance_allprobs(distribution):
     return [distance_prob(distribution, 0)] + [round(2*distance_prob(distribution, distance), 4) for distance in range(1, len(distribution))]
 
 
-
+################################################ Entropy ###############################################################
 def H(p):
     """
     Calculates the binary entropy function H(p).
@@ -40,8 +41,6 @@ def H(p):
     if p == 0 or p == 1:
         return 0
     return -p * log2(p) - (1 - p) * log2(1 - p)
-
-
 
 def H_inv(target_entropy):
     """
@@ -93,12 +92,28 @@ def H_inv(target_entropy):
         # Catch potential errors from root_scalar itself (e.g., if no sign change in bracket)
         raise ValueError(f"Failed to find inverse for entropy {target_entropy} in [0, 0.5]. Error: {e}")
 
+################################################ Numpy##################################################################
 
+def random_binary_vector(m, pack = False, HW = None):
+    bound = min(2**64, 2**m)
+    num_uint64_chunks = (m + 63) // 64  # Calculate the number of uint64 chunks needed
 
-def rand_vec(m):
-    return np.random.randint(0, 2, size=m, dtype=bool)
+    if pack == False:
+        if HW == None:
+            vec = np.random.randint(0, 2, m, dtype=np.uint8)
+        else:
+            vec = np.zeros(m, dtype=np.uint8)
+            indices = np.random.choice(m, HW, replace=False)
+            np.put(vec, indices, 1)
+    else:
+        if HW == None:
+            vec = np.random.randint(low=0, high=min(2**64, 2**m), size=num_uint64_chunks, dtype=np.uint64)
+        else:
+            vec = random_binary_vector(m, pack = False, HW = HW)
+            vec = np.packbits(vec, bitorder='little')
+    return vec
 
-def generate_random_binary_sets(m, **kwargs):
+def random_binary_vectors(m, **kwargs):
     """
     Generates two sets of 2**(lambda*m) random m-dimensional binary vectors.
 
@@ -114,89 +129,25 @@ def generate_random_binary_sets(m, **kwargs):
     else:
         num_vectors = kwargs['num_vectors']
     num_vectors -= 1
+    vectors = [random_binary_vector(m) for _ in range(int(num_vectors))]
 
-    # Use dtype=bool for memory efficiency if values are strictly 0 or 1
-    # Otherwise, use np.uint8 for bitwise operations if needed later
-    set1 = np.random.randint(0, 2, size=(int(num_vectors), m), dtype=bool)
-    set2 = np.random.randint(0, 2, size=(int(num_vectors), m), dtype=bool)
-    return set1, set2
+    return vectors
+
+def HW_int(n: np.uint64) -> int:
+    return int(n).bit_count()
+
+def HW_vector(vec) -> int:
+    return sum([HW_int(val) for val in vec])
 
 
-def generate_vector_with_hamming_distance(reference_vector, **kwargs):
-    """
-    Generates a random binary vector with a specific Hamming distance from a reference vector.
-
-    Args:
-        reference_vector (np.ndarray): The base binary vector (1D NumPy array).
-        gamma_val (float): A scalar for the target Hamming distance.
-
-    Returns:
-        np.ndarray: A new binary vector with the specified Hamming distance.
-    """
-    m = len(reference_vector)
+def gen_closest_vecs_instance(reference_vec, **kwargs):
+    m = len(reference_vec)
     if 'gamma_val' in kwargs:
         HW = int(2 ** (kwargs['gamma_val'] * m))
     else:
         HW = kwargs['HW']
-    if HW > m:
-        raise ValueError(f"Target Hamming distance ({HW}) cannot exceed vector dimension ({m}).")
-
-    # Get indices to flip
-    # Randomly choose 'target_distance' unique indices to flip
     indices_to_flip = np.random.choice(m, HW, replace=False)
 
-    # Create a copy to modify
-    new_vector = reference_vector.copy()
-
-    # Flip the bits at selected indices
-    # For boolean arrays, XORing with True (or 1) flips the bit
-    # For integer arrays, XORing with 1 flips the bit
-    new_vector[indices_to_flip] = ~new_vector[indices_to_flip]  # For boolean
-    # If new_vector was int: new_vector[indices_to_flip] = 1 - new_vector[indices_to_flip] or new_vector[indices_to_flip] ^= 1
-
-    return new_vector
-
-
-def gen_closest_vecs_instance(m, **kwargs):
-    """
-    Generates two lists of vectors, L and R, and a special pair (l, r)
-    such that l is appended to L, r is appended to R, and the Hamming
-    distance between l and r is controlled by the HW/gamma_val parameter.
-
-    Args:
-        m (int): The dimension of the vectors.
-        **kwargs: Keyword arguments passed to the generation functions.
-
-    Returns:
-        tuple: The updated L and R NumPy arrays, each with one additional vector.
-    """
-    L, R = generate_random_binary_sets(m, **kwargs)
-
-    # Generate the special "closest pair" vectors
-    l = np.random.randint(0, 2, size=m, dtype=bool)
-    r = generate_vector_with_hamming_distance(l, **kwargs)
-
-    # Use np.vstack to efficiently append the new vectors to their respective sets.
-    # This stacks the arrays vertically, creating new arrays with one additional row.
-    L_with_l = np.vstack((L, l))
-    R_with_r = np.vstack((R, r))
-
-    return L_with_l, R_with_r
-
-def np2clasical_list(vectors):
-    return list(map(list, vectors.astype(int)))
-
 if __name__ == '__main__':
-    L, R = gen_closest_vecs_instance(m=10, num_vectors=3, HW=2)
-    print(L.astype(int))
-    print(R.astype(int))
-    print((L[-1] ^ R[-1]).astype(int))
-
-
-
-    # y_values = [[j/10] + [ y_comp(gamma_val=0.5*i/10, lambda_val=j/10) for i in range(11)] for j in range(11)]
-    # T = prettytable.PrettyTable()
-    # T.add_rows(y_values)
-    # print(T)
-
-
+    print(random_binary_vector(10, pack=False, HW=5))
+    print(random_binary_vector(10, pack=True, HW=5))
