@@ -150,28 +150,62 @@ def HW_int(n: np.uint64) -> int:
 def HW_vector(vec) -> int:
     return sum([HW_int(val) for val in vec])
 
+def packed_vec_slice(packed_vec, idx_from, idx_to):
+    start_block_idx = idx_from >> 6
+    end_block_idx = (idx_to - 1) >> 6
+    start_bit_offset = idx_from & 63
+    num_bits_to_extract = idx_to - idx_from
+
+    if start_block_idx == end_block_idx:
+        element = packed_vec[start_block_idx]
+        return [(element >> np.uint64(start_bit_offset)) & np.uint64(((1 << num_bits_to_extract) - 1))]
+    else:
+        lower_bits = packed_vec[start_block_idx] >> np.uint64(start_bit_offset)
+
+        upper_bits_raw = packed_vec[end_block_idx]
+
+        bits_from_first_elem = 64 - start_bit_offset
+        bits_from_second_elem = num_bits_to_extract - bits_from_first_elem
+        mask_for_upper = np.uint64((1 << bits_from_second_elem) - 1)
+        upper_bits_shifted = (upper_bits_raw & mask_for_upper) << np.uint64(bits_from_first_elem)
+
+        result = lower_bits | upper_bits_shifted
+        assert 2**64 > result
+        return [result]
+
+
+def unpack_vector(vec, m = None):
+    if m is None:
+        m = len(vec) * 64
+    full_binary_string = ''.join([format(chunk, '064b')[::-1] for chunk in vec])[:m]
+    return list(map(int, full_binary_string))
+
 if __name__ == '__main__':
     short = random_binary_vector(10, pack=False)
     short_HW = random_binary_vector(10, pack=False, HW=5)
     short_packed = random_binary_vector(10, pack=True)
     short_packed_HW = random_binary_vector(10, pack=True, HW=5)
-    long_packed = random_binary_vector(65, pack=True)
+    long_packed = random_binary_vector(96, pack=True)
     long_packed_HW = random_binary_vector(65, pack=True, HW=5)
 
     print(short)
     print(short_packed)
+    print(unpack_vector(short_packed, m = 10))
     print(long_packed)
     assert HW_vector(short_HW) == 5
     assert HW_vector(short_packed_HW) == 5
     assert HW_vector(long_packed_HW) == 5
 
-    for i in range(10):
-        print("Natural instance")
-        NN_dist = random.randint(0, 2)
-        L, R = gen_instance(m = 10, num_vectors = 4, NN_dist = NN_dist,  pack = False)
-        print("L=", *L, '--' * 40, sep='\n')
-        print( "R=", *R, '--' * 40, sep='\n')
-        assert HW_vector(L[-1] ^ R[-1]) == NN_dist
+    print(unpack_vector(long_packed, m=96))
+    print(unpack_vector(packed_vec_slice(long_packed, 0, 48)))
+    print(unpack_vector(packed_vec_slice(long_packed, 48, 96)))
+
+    print("Natural instance")
+    NN_dist = random.randint(0, 2)
+    L, R = gen_instance(m = 10, num_vectors = 4, NN_dist = NN_dist,  pack = False)
+    print("L=", *L, '--' * 40, sep='\n')
+    print( "R=", *R, '--' * 40, sep='\n')
+    assert HW_vector(L[-1] ^ R[-1]) == NN_dist
 
     print("Packed instance")
     NN_dist = random.randint(0, 2)
