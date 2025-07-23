@@ -148,11 +148,11 @@ def HW_int(n: np.uint64) -> int:
 def HW_vector(vec) -> int:
     return sum([HW_int(val) for val in vec])
 
-def vec_dist_positions(vec, shift_vec, indices):
+def distance_positions(vec, shift_vec, indices):
     return sum([vec[indices[i]] ^ shift_vec[i] for i in range(len(indices))])
 
-def vec_dist(vec, shift_vec):
-    return np.sum(vec, shift_vec)
+def distance(vec, shift_vec):
+    return np.sum(vec ^ shift_vec)
 
 def packed_vec_slice(packed_vec, idx_from, idx_to):
     start_block_idx = idx_from >> 6
