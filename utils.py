@@ -24,7 +24,6 @@ def distance_prob(distribution, distance):
 def distance_allprobs(distribution):
     return [distance_prob(distribution, 0)] + [round(2*distance_prob(distribution, distance), 4) for distance in range(1, len(distribution))]
 
-
 ################################################ Entropy ###############################################################
 def H(p):
     """
@@ -92,7 +91,7 @@ def H_inv(target_entropy):
         # Catch potential errors from root_scalar itself (e.g., if no sign change in bracket)
         raise ValueError(f"Failed to find inverse for entropy {target_entropy} in [0, 0.5]. Error: {e}")
 
-################################################ Numpy##################################################################
+################################################ Numpy #################################################################
 def binary_vector_to_uint64_array(binary_vector):
     vector_length = len(binary_vector)
     bits_needed_for_padding = (64 - (vector_length % 64)) % 64
@@ -132,7 +131,6 @@ def random_binary_vectors(m, num_vectors = None, pack = False):
     vectors = [random_binary_vector(m, pack = pack) for _ in range(int(num_vectors))]
     return vectors
 
-
 def gen_closest_vecs_instance(reference_vec, HW = 0, pack = False):
     m = len(reference_vec)
     vec_to_add = random_binary_vector(m, HW, pack)
@@ -149,6 +147,12 @@ def HW_int(n: np.uint64) -> int:
 
 def HW_vector(vec) -> int:
     return sum([HW_int(val) for val in vec])
+
+def vec_dist_positions(vec, shift_vec, indices):
+    return sum([vec[indices[i]] ^ shift_vec[i] for i in range(len(indices))])
+
+def vec_dist(vec, shift_vec):
+    return np.sum(vec, shift_vec)
 
 def packed_vec_slice(packed_vec, idx_from, idx_to):
     start_block_idx = idx_from >> 6
@@ -172,7 +176,6 @@ def packed_vec_slice(packed_vec, idx_from, idx_to):
         result = lower_bits | upper_bits_shifted
         assert 2**64 > result
         return [result]
-
 
 def unpack_vector(vec, m = None):
     if m is None:
