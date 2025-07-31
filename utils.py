@@ -4,26 +4,6 @@ from math import log2
 from scipy.optimize import root_scalar
 
 
-################################################ Stats #################################################################
-
-def binom_prob(n, HW, p=0.5):
-    return round(sympy.binomial(n, HW) * p ** HW * (1 - p) ** (n - HW), 4)
-
-def binom_dist(n):
-    return [binom_prob(n, k) for k in range(0, n + 1)]
-
-def cdf(dist):
-    return [sum(dist[:i]) for i in range(1, len(dist) + 1)]
-
-def center_cumulative(dist):
-    return ([1] + [sum(dist[i:-i]) for i in range(1, len(dist)//2)])[::-1]
-
-def distance_prob(distribution, distance):
-    return sum([distribution[i]*distribution[i+distance] for i in range(len(distribution) - distance)])
-
-def distance_allprobs(distribution):
-    return [distance_prob(distribution, 0)] + [round(2*distance_prob(distribution, distance), 4) for distance in range(1, len(distribution))]
-
 ################################################ Entropy ###############################################################
 def H(p):
     """
@@ -182,6 +162,7 @@ def unpack_vector(vec, m = None):
         m = len(vec) * 64
     full_binary_string = ''.join([format(chunk, '064b')[::-1] for chunk in vec])[:m]
     return list(map(int, full_binary_string))
+
 
 if __name__ == '__main__':
     short = random_binary_vector(10, pack=False)
