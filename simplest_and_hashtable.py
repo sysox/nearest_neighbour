@@ -26,6 +26,12 @@ def rand_int_HW(bit_size: int, HW: int) -> int:
     result_int = sum(2**i for i in one_indices)
     return result_int
 
+def rand_maskvalues_HW(bit_size: int, HW: int) -> int:
+    if HW == 0:
+        return 0
+    one_indices = random.sample(range(bit_size), HW)
+    return [2**i for i in one_indices]
+
 def gen_instance(num_vectors, bit_size, match_prob):
     L = rand_integers(num_vectors, bit_size)
     R = rand_integers(num_vectors, bit_size)
@@ -51,7 +57,7 @@ def bits_extraction(value, mask_values):
     res = 0
     for mask_value in mask_values:
         res = (res << 1)
-        res |= (value & mask_value) == 1
+        res |= (value & mask_value) == mask_value
     return res
 
 def NN(L, R, match_prob, mask_HW=None, bit_size=32, func_operator = operator.le):
@@ -68,11 +74,11 @@ def NN(L, R, match_prob, mask_HW=None, bit_size=32, func_operator = operator.le)
     while True:
         L_table = [[] for _ in range(1<<mask_HW)]
         R_table = [[] for _ in range(1<<mask_HW)]
-        mask = rand_int_HW(HW=mask_HW, bit_size=bit_size)
+        mask_values = rand_maskvalues_HW(HW=mask_HW, bit_size=bit_size)
         for i in range(num_vectors):
-            idx = (L[i] & mask) % table_size
+            idx = bits_extraction(L[i], mask_values)
             L_table[idx].append(L[i])
-            idx = (L[i] & mask) % table_size
+            idx = bits_extraction(R[i], mask_values)
             R_table[idx].append(R[i])
 
         for i in range(table_size):
@@ -84,7 +90,7 @@ def NN(L, R, match_prob, mask_HW=None, bit_size=32, func_operator = operator.le)
 
 if __name__ == "__main__":
     num_vectors, match_prob, bit_size = 1000, 0.9, 64
-    for mask_HW in range(6, 20):
+    for mask_HW in range(7, 13):
         start = time.time()
         success, repetitions, vector_comparisons = [], [], []
         for _ in range(100):
