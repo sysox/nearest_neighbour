@@ -1,6 +1,7 @@
 from collections import defaultdict, namedtuple
 import json, math, random
 import operator
+import time
 ####################################### utils #######################################
 
 def binary(vec_as_int, size=32):
@@ -171,14 +172,23 @@ def NN(L, R, match_prob, mask_HW=None, bit_size=32, func_operator = operator.le)
             l, r = dist_vectors(matching_masked_L_pairs, matching_masked_R_pairs, dist, func_operator)
             if (l, r) != (None, None):
                 return {'success': (l, r) == (L[-1], R[-1]), "l": l, "r": r, "repetitions": repetitions, "vector_comparisons":vector_comparisons, 'mask_HW':mask_HW}
-            repetitions += 1
+        repetitions += 1
 
 if __name__ == "__main__":
-    num_vectors, match_prob, bit_size = 100, 0.9, 64
-    L, R = gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob)
-    res = NN(L, R, match_prob, bit_size=bit_size)
-    print(res)
-    l, r = res['l'], res['r']
-    print(dist(l , r))
-    print(binary(l, bit_size))
-    print(binary(r, bit_size))
+    num_vectors, match_prob, bit_size = 10000, 0.9, 64
+
+    for mask_HW in range(6, 15):
+        start = time.time()
+        success, repetitions, vector_comparisons = [], [], []
+        for _ in range(100):
+            L, R = gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob)
+            tmp = NN(L, R, match_prob, bit_size=bit_size, mask_HW=mask_HW)
+            success.append(tmp['success'])
+            repetitions.append(tmp['repetitions'])
+            vector_comparisons.append(tmp['vector_comparisons'])
+        print(f" mask_HW={mask_HW} time={time.time() - start}, #success={sum(success)}, #repetitions={sum(repetitions)/10**6}, #vector_comparisons={sum(vector_comparisons)/10**6}")
+    # print(res)
+    # l, r = res['l'], res['r']
+    # print(dist(l , r))
+    # print(binary(l, bit_size))
+    # print(binary(r, bit_size))
