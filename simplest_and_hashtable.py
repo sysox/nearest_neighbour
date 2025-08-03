@@ -97,15 +97,22 @@ def NN(L, R, match_prob, mask_HW=None, bit_size=32, func_operator = operator.le)
         repetitions += 1
 
 if __name__ == "__main__":
-    num_vectors, match_prob, bit_size = 1000, 0.9, 64
-    for mask_HW in range(7, 13):
+    num_vectors, match_prob, bit_size = 10000, 0.9, 64
+    instance_count = 100
+    LR_pairs = [gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob) for _ in range(instance_count)]
+
+    for mask_HW in range(8, 15):
         start = time.time()
         success, repetitions, vector_comparisons = [], [], []
-        for _ in range(1000):
-            L, R = gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob)
+        for i in range(instance_count):
+            L, R = LR_pairs[i]
             tmp = NN(L, R, match_prob, bit_size=bit_size, mask_HW=mask_HW)
             success.append(tmp['success'])
             repetitions.append(tmp['repetitions'])
             vector_comparisons.append(tmp['vector_comparisons'])
-        print(f" mask_HW={mask_HW} time={time.time() - start}, #success={sum(success)/1000}, #repetitions={sum(repetitions)/1000}, #vector_comparisons={sum(vector_comparisons)/1000}")
+        print(f"({num_vectors},{match_prob},{bit_size},{mask_HW}):, "
+              f"time={(time.time() - start)/instance_count}, "
+              f"#success={sum(success)/instance_count}, "
+              f"#repetitions={sum(repetitions)/instance_count},"
+              f" #vector_comparisons={sum(vector_comparisons)/instance_count}")
 
