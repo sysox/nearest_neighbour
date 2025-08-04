@@ -34,8 +34,8 @@ def gen_instance(num_vectors, bit_size, match_prob):
 
 if __name__ == "__main__":
     num_vectors, match_prob, bit_size = 1000, 0.9, 64
-    match_probs = [(0.5+i)/10 for i in range(10)] + [0.6, 0.7, 0.8] + [(0.9+i)/10 for i in range(10)]
+    match_probs = [0.5+i/100 for i in range(10)] + [0.6, 0.7, 0.8] + [0.9+i/100 for i in range(10)]
     for num_vectors in [10, 100, 1000, 10000]:
         for match_prob in match_probs:
             to_save = [gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob) for _ in range(100)]
-            json.dump(to_save, open(f"data/instances_{match_prob}_{num_vectors}_{bit_size}.json", 'w'))
+            json.dump(to_save, open(f"data/instances_{str(match_prob)[:4]}_{num_vectors}_{bit_size}.json", 'w'))

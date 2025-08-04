@@ -1,9 +1,8 @@
+import collections
 from collections import defaultdict, namedtuple
-import json, math, random
-import operator
-import time
+import yaml, json
+import math, random, operator, time
 ####################################### utils #######################################
-
 def binary(vec_as_int, size=32):
     return format(vec_as_int, f'0{size}b')
 
@@ -13,6 +12,15 @@ def HW(v):
 def dist(u, v):
     return HW(u^v)
 
+def to_nested_defaultdict(data):
+    """Recursively converts a dictionary to a nested defaultdict."""
+    if isinstance(data, dict):
+        # The factory for this level is a lambda that creates another nested defaultdict
+        return collections.defaultdict(
+            lambda: to_nested_defaultdict({}),
+            {k: to_nested_defaultdict(v) for k, v in data.items()}
+        )
+    return data
 ####################################### generation #######################################
 
 def rand_integers(num_vectors: int, bit_size: int) -> list[int]:
@@ -54,16 +62,26 @@ def NN(L, R, match_prob, bit_size=32, func_operator = operator.le):
 
 if __name__ == "__main__":
     num_vectors, match_prob, bit_size = 1000, 0.9, 64
+    yaml.dump({"BF": {}, "sort": {}, "hash_mod": {}, "hash_extract": {}}, open('timings.yaml', 'w'))
 
-    open('data/in')
-    start = time.time()
+    timings = yaml.safe_load(open('timings.yaml', 'r'))
+    timings = to_nested_defaultdict(timings)
 
-    repetions = 1000
-    for num_vectors in [10, 100, 1000, 10000]:
+    instance_count = 10
+    for num_vectors in [100, 1000, 10000]:
+        LR_pairs = [gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob) for _ in
+                    range(instance_count)]
+        start = time.time()
         success = []
-        for _ in range(repetions):
-            L, R = gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob)
+        for i in range(instance_count):
+            # L, R = gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob)
+            # L, R = instances[i]
+            L, R = LR_pairs[i]
             tmp = NN(L, R, match_prob, bit_size=bit_size)
             success.append(tmp['success'])
-        print(f"time={time.time() - start}, success={sum(success)/repetions}, num_vectors={num_vectors}")
+        print(f"({num_vectors},{match_prob},{bit_size}):, "
+              f"time={(time.time() - start)/instance_count}, "
+              f"#success={sum(success) / instance_count}, "
+              f"#vector_comparisons={num_vectors*num_vectors}")
+
 

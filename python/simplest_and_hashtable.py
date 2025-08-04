@@ -79,14 +79,17 @@ def NN(L, R, match_prob, mask_HW=None, bit_size=32, func_operator = operator.le)
     repetitions = 1
     vector_comparisons = 0
     table_size = 1 << mask_HW
+    to_and = (1 << mask_HW) - 1
     while True:
         L_table = [[] for _ in range(1<<mask_HW)]
         R_table = [[] for _ in range(1<<mask_HW)]
-        mask_values = rand_maskvalues_HW(HW=mask_HW, bit_size=bit_size)
+        shift = random.randrange(bit_size - mask_HW - 1)
+
+        # mask_values = rand_maskvalues_HW(HW=mask_HW, bit_size=bit_size)
         for i in range(num_vectors):
-            idx = bits_extraction(L[i], mask_values)
+            idx = (L[i] >> shift) & to_and
             L_table[idx].append(L[i])
-            idx = bits_extraction(R[i], mask_values)
+            idx = (R[i] >> shift) & to_and
             R_table[idx].append(R[i])
 
         for i in range(table_size):
@@ -98,7 +101,7 @@ def NN(L, R, match_prob, mask_HW=None, bit_size=32, func_operator = operator.le)
 
 if __name__ == "__main__":
     num_vectors, match_prob, bit_size = 10000, 0.9, 64
-    instance_count = 100
+    instance_count = 1000
     LR_pairs = [gen_instance(num_vectors=num_vectors, bit_size=bit_size, match_prob=match_prob) for _ in range(instance_count)]
 
     for mask_HW in range(8, 15):
